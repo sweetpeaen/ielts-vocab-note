@@ -14,3 +14,4 @@ node_modules/
 import.js
 fix-defs.js
 backfill.js
+gen-examples.js

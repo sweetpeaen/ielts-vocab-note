@@ -325,7 +325,7 @@ textarea, input[type=text], input[type=search], input:not([type]) {
 }
 textarea:focus, input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
 .field { margin-bottom: 14px; }
-.field label { display: block; font-size: 12.5px; font-weight: 600; color: var(--ink-soft); margin-bottom: 5px; letter-spacing: .04em; }
+.field > label { display: block; font-size: 12.5px; font-weight: 600; color: var(--ink-soft); margin-bottom: 5px; letter-spacing: .04em; }
 .field textarea, .field input { width: 100%; }
 .field .sub { font-size: 12px; color: var(--ink-soft); margin-top: 4px; }
 .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }

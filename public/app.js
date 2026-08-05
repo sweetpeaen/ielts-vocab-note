@@ -61,6 +61,25 @@ function tagsHtml(tags) {
   return (tags || []).map(t => `<span class="chip" style="pointer-events:none">${esc(t)}</span>`).join('');
 }
 // 在例句中用 <mark> 高亮词组（大小写不敏感）
+const IRREG = {
+  'is': 'be', 'are': 'be', 'was': 'be', 'were': 'be', 'been': 'be', 'being': 'be',
+  'came': 'come', 'took': 'take', 'taken': 'take', 'threw': 'throw', 'thrown': 'throw',
+  'made': 'make', 'met': 'meet', 'went': 'go', 'gone': 'go', 'ran': 'run', 'got': 'get',
+  'had': 'have', 'saw': 'see', 'seen': 'see', 'did': 'do', 'done': 'do', 'said': 'say',
+  'told': 'tell', 'gave': 'give', 'given': 'give', 'found': 'find', 'felt': 'feel',
+  'left': 'leave', 'kept': 'keep', 'brought': 'bring', 'thought': 'think', 'taught': 'teach',
+  'knew': 'know', 'known': 'know', 'became': 'become', 'began': 'begin', 'built': 'build',
+  'sent': 'send', 'spent': 'spend', 'stood': 'stand', 'won': 'win', 'wrote': 'write', 'written': 'write'
+};
+const HL_STOP = new Set(['a', 'an', 'the', 'and', 'or', 'of', 'to', 'for', 'from', 'by', 'in', 'on', 'at', 'with', 'into', 'as', 'do', 'sb', 'sb.', 'sth', 'sth.', "one's", 'someone', 'something']);
+function stemWord(w) { return IRREG[w] || w; }
+function wordsMatch(ph, ex) {
+  const a = ph.toLowerCase(), b = ex.toLowerCase();
+  if (a === b) return true;
+  if (stemWord(a) === stemWord(b)) return true;
+  const n = Math.min(a.length, b.length);
+  return n >= 4 && a.slice(0, 4) === b.slice(0, 4);
+}
 function hlPhrase(ex, ph) {
   if (!ph) return esc(ex);
   const lower = String(ex).toLowerCase(), p = ph.toLowerCase();
@@ -69,7 +88,21 @@ function hlPhrase(ex, ph) {
     out += esc(ex.slice(i, idx)) + '<mark>' + esc(ex.slice(idx, idx + ph.length)) + '</mark>';
     i = idx + ph.length;
   }
-  return out + esc(ex.slice(i));
+  if (i > 0) return out + esc(ex.slice(i));
+  // 词组被变形/代位（came across、is used to）时，逐词模糊匹配
+  const words = p.replace(/[^a-z\s]/g, ' ').split(/\s+/).filter(w => w && !HL_STOP.has(w));
+  if (!words.length) return esc(ex);
+  const re = /[a-z']+/g;
+  let last = 0, m;
+  while ((m = re.exec(ex)) !== null) {
+    if (words.some(w => wordsMatch(w, m[0]))) {
+      out += esc(ex.slice(last, m.index)) + '<mark>' + esc(m[0]) + '</mark>';
+    } else {
+      out += esc(ex.slice(last, m.index + m[0].length));
+    }
+    last = m.index + m[0].length;
+  }
+  return out + esc(ex.slice(last));
 }
 const POS_RE = /^(n\.|v\.|vt\.|vi\.|adj\.|adv\.|prep\.|conj\.|pron\.|num\.|art\.|int\.|aux\.|abbr\.)\s*(.*)$/i;
 function parsePairs(text, a, b) {
@@ -240,11 +273,12 @@ function renderPhrases() {
 function phraseCardHtml(p) {
   const open = state.openPhraseId === p.id;
   const exs = p.examples || [];
-  const tip = exs[0] ? hlPhrase(exs[0], p.en) : '';
+  // 悬停优先显示首条例句；无例句时回退显示中文释义，保证卡片悬停永远有反馈
+  const tip = exs.length && exs[0] ? hlPhrase(exs[0], p.en) : (p.cn ? esc(p.cn) : '');
   return `
   <div class="pcard${open ? ' open' : ''}" data-action="toggle-phrase" data-id="${p.id}">
     ${stampHtml(p.proficiency)}
-    ${exs.length ? `<div class="p-tip">${tip}</div>` : ''}
+    ${tip ? `<div class="p-tip">${tip}</div>` : ''}
     <div class="phr">${esc(p.en)}</div>
     ${p.cn ? `<div class="cn">${esc(p.cn)}</div>` : ''}
     ${open && exs.length ? `<div class="p-exs"><div class="p-exs-title">例句</div>${exs.map(e => `<div class="p-ex">${hlPhrase(e, p.en)}</div>`).join('')}</div>` : ''}
