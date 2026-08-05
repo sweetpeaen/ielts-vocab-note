@@ -176,6 +176,7 @@ body {
 .def-line { display: flex; gap: 10px; padding: 6px 0; border-bottom: 1px dashed var(--line); }
 .def-line:last-child { border-bottom: 0; }
 .def-line .pos { flex: 0 0 46px; font-weight: 700; color: var(--accent); }
+.def-line .pos:empty { display: none; }
 .def-line .mean { color: var(--ink); }
 .phr-item { display: flex; gap: 10px; padding: 6px 0; border-bottom: 1px dashed var(--line); }
 .phr-item:last-child { border-bottom: 0; }
@@ -235,17 +236,18 @@ body {
 .s-actions { display: flex; gap: 8px; margin-top: 14px; }
 
 /* ============ Phrase view ============ */
-.plist { display: flex; flex-direction: column; gap: 12px; }
+.plist { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 12px; }
 .pcard {
   background: var(--surface); border: 1px solid var(--line); border-left: 4px solid #A76BD4;
-  border-radius: var(--radius); padding: 14px 18px; position: relative;
+  border-radius: var(--radius); padding: 14px 16px; position: relative;
+  display: flex; flex-direction: column;
   transition: box-shadow .16s, transform .16s;
 }
 .pcard:hover { box-shadow: var(--shadow-lg); transform: translateY(-2px); }
-.pcard .phr { font-family: var(--font-display); font-size: 18px; color: var(--brand); line-height: 1.45; padding-right: 84px; }
+.pcard .phr { font-family: var(--font-display); font-size: 16.5px; color: var(--brand); line-height: 1.4; padding-right: 52px; }
 .pcard .cn { color: var(--ink-soft); margin-top: 4px; font-size: 14px; }
-.pcard .stamp { position: absolute; top: 14px; right: 16px; }
-.pcard .meta { display: flex; gap: 6px; margin-top: 10px; flex-wrap: wrap; align-items: center; }
+.pcard .stamp { position: absolute; top: 12px; right: 12px; }
+.pcard .meta { display: flex; gap: 6px; margin-top: auto; padding-top: 10px; flex-wrap: wrap; align-items: center; }
 .pcard .tags { display: flex; gap: 4px; flex-wrap: wrap; margin-right: auto; }
 
 /* ============ Tag dropdown selector ============ */

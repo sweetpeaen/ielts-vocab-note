@@ -42,10 +42,15 @@ function stampHtml(prof) {
 function tagsHtml(tags) {
   return (tags || []).map(t => `<span class="chip" style="pointer-events:none">${esc(t)}</span>`).join('');
 }
+const POS_RE = /^(n\.|v\.|vt\.|vi\.|adj\.|adv\.|prep\.|conj\.|pron\.|num\.|art\.|int\.|aux\.|abbr\.)\s*(.*)$/i;
 function parsePairs(text, a, b) {
   return String(text || '').split('\n').map(l => l.trim()).filter(Boolean).map(l => {
     const i = l.indexOf('|');
-    return i >= 0 ? { [a]: l.slice(0, i).trim(), [b]: l.slice(i + 1).trim() } : { [a]: l.trim(), [b]: '' };
+    if (i >= 0) return { [a]: l.slice(0, i).trim(), [b]: l.slice(i + 1).trim() };
+    // 缺 | 时自动拆分词性（n. 书 → n. | 书），否则中文释义会渲染为空
+    const m = l.match(POS_RE);
+    if (m) return { [a]: m[1], [b]: m[2] };
+    return { [a]: l, [b]: '' };
   });
 }
 function toPairsText(arr, a, b) {
