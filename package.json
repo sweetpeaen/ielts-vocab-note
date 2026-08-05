@@ -1,0 +1,21 @@
+{
+  "name": "ielts-vocab-note",
+  "version": "1.0.0",
+  "description": "IELTS 词汇与例句学习笔记 —— 本地运行、零依赖，AI 句子分析可选（自带 API Key）",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=22.13.0"
+  },
+  "license": "MIT",
+  "keywords": [
+    "ielts",
+    "vocabulary",
+    "english",
+    "study",
+    "notes",
+    "sqlite"
+  ]
+}

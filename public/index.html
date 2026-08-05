@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>词汇本 · IELTS</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400..700;1,9..144,400..700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<header class="topbar">
+  <div class="brand">
+    <span class="brand-mark">词</span>
+    <div class="brand-text">
+      <strong>词汇本</strong>
+      <div class="brand-sub">IELTS · Vocabulary</div>
+    </div>
+  </div>
+  <nav class="tabs" id="tabs">
+    <button class="tab is-active" data-view="words">单词库</button>
+    <button class="tab" data-view="sentences">句子库</button>
+  </nav>
+  <div class="topbar-actions">
+    <button id="settingsBtn" class="btn btn-ghost topbar-btn">⚙ 设置</button>
+    <button id="addBtn" class="btn btn-brand">＋ 新建</button>
+  </div>
+</header>
+
+<main class="container" id="app"></main>
+<div id="modalRoot"></div>
+<div id="toastRoot"></div>
+<script src="app.js"></script>
+</body>
+</html>
