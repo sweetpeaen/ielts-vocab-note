@@ -94,6 +94,11 @@ body {
 }
 .search:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
 .filters { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.sort-select {
+  border: 1px solid var(--line); border-radius: 9px; background: var(--surface);
+  padding: 9px 12px; font: inherit; font-size: 13.5px; color: var(--ink); cursor: pointer;
+}
+.sort-select:focus { outline: none; border-color: var(--accent); }
 
 /* tag chips */
 .chip {

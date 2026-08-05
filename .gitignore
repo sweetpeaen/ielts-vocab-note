@@ -10,5 +10,7 @@ key.txt
 node_modules/
 *.log
 
-# 本地一次性导入脚本（含本机绝对路径）
+# 本地一次性脚本（导入/数据修复）
 import.js
+fix-defs.js
+backfill.js

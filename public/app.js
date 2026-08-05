@@ -13,9 +13,19 @@ const state = {
   phrases: [],
   tags: [],
   filters: { tag: '', prof: '', q: '' },
+  sort: 'new',
   detailWordId: null,
   openSentenceId: null,
+  listScroll: 0,
 };
+
+function sortWords(list) {
+  const arr = list.slice();
+  if (state.sort === 'az') return arr.sort((a, b) => (a.word || '').localeCompare(b.word || '', 'en'));
+  if (state.sort === 'za') return arr.sort((a, b) => (b.word || '').localeCompare(a.word || '', 'en'));
+  if (state.sort === 'old') return arr.sort((a, b) => (a.created_at || '').localeCompare(b.created_at || ''));
+  return arr.sort((a, b) => (b.created_at || '').localeCompare(a.created_at || ''));
+}
 
 /* ---------- utils ---------- */
 const $ = s => document.querySelector(s);
@@ -107,9 +117,16 @@ function filterBarHtml(extra) {
   const tagChips = state.tags.map(t => `<button class="chip${state.filters.tag === t ? ' is-active' : ''}" data-action="set-tag" data-tag="${esc(t)}">${esc(t)}</button>`).join('');
   const profChips = PROF_LIST.map(p => `<button class="pf${state.filters.prof === p ? ' is-active' : ''}" style="--c:${PROF[p].color}" data-action="set-prof" data-prof="${p}"><span class="dot"></span>${PROF[p].label}</button>`).join('');
   const ph = extra === 'word' ? '搜索单词…' : extra === 'phrase' ? '搜索词组…' : '搜索句子…';
+  const sortSel = extra === 'word' ? `<select class="sort-select" id="sortSel">
+      <option value="new" ${state.sort === 'new' ? 'selected' : ''}>加入时间 · 新 → 旧</option>
+      <option value="old" ${state.sort === 'old' ? 'selected' : ''}>加入时间 · 旧 → 新</option>
+      <option value="az" ${state.sort === 'az' ? 'selected' : ''}>首字母 · A → Z</option>
+      <option value="za" ${state.sort === 'za' ? 'selected' : ''}>首字母 · Z → A</option>
+    </select>` : '';
   return `
   <div class="filterbar">
     <input class="search" id="search" type="search" placeholder="${ph}" value="${esc(state.filters.q)}">
+    ${sortSel}
     <div class="filters">
       ${tagChips}
       <button class="chip is-add" data-action="add-tag">标签管理</button>
@@ -124,13 +141,18 @@ function renderWords() {
   const app = $('#app');
   if (state.detailWordId) {
     const w = state.words.find(x => x.id === state.detailWordId);
-    if (w) { app.innerHTML = wordDetailHtml(w); return; }
+    if (w) {
+      app.innerHTML = wordDetailHtml(w);
+      requestAnimationFrame(() => window.scrollTo(0, 0));
+      return;
+    }
     state.detailWordId = null;
   }
   let list = state.words;
   if (state.filters.tag) list = list.filter(w => (w.tags || []).includes(state.filters.tag));
   if (state.filters.prof) list = list.filter(w => w.proficiency === state.filters.prof);
   if (state.filters.q) list = list.filter(w => (w.word || '').toLowerCase().includes(state.filters.q.toLowerCase()));
+  list = sortWords(list);
   const cards = list.map(wordCardHtml).join('');
   const empty = `<div class="empty"><div class="big">空白的一页</div><p>还没有符合条件的单词。</p><button class="btn btn-brand" data-action="open-add-word">＋ 新建单词</button></div>`;
   app.innerHTML = filterBarHtml('word') + (cards ? `<div class="grid" id="wordList">${cards}</div>` : empty);
@@ -685,16 +707,25 @@ function wireEvents() {
     else { render(); const c = $('#composerInput'); if (c) c.focus(); }
   });
   $('#settingsBtn').addEventListener('click', openSettingsModal);
+  $('#app').addEventListener('change', e => {
+    if (e.target.id === 'sortSel') {
+      state.sort = e.target.value;
+      const grid = $('#wordList');
+      if (grid) grid.innerHTML = sortWords(state.words).map(wordCardHtml).join('') || '<div class="empty">无匹配单词</div>';
+    }
+  });
   $('#app').addEventListener('click', async e => {
     const t = e.target.closest('[data-action]');
     if (!t) return;
     const act = t.dataset.action;
     if (act === 'open-word') {
+      state.listScroll = window.scrollY;
       state.detailWordId = t.dataset.id;
       render();
     } else if (act === 'back-word') {
       state.detailWordId = null;
       render();
+      requestAnimationFrame(() => window.scrollTo(0, state.listScroll || 0));
     } else if (act === 'edit-word') {
       openEditWordModal(t.dataset.id);
     } else if (act === 'del-word') {
@@ -765,7 +796,7 @@ function wireEvents() {
       };
       if (state.view === 'words') {
         const grid = $('#wordList');
-        if (grid) grid.innerHTML = applyFilter(state.words).map(wordCardHtml).join('') || '<div class="empty">无匹配单词</div>';
+        if (grid) grid.innerHTML = sortWords(applyFilter(state.words)).map(wordCardHtml).join('') || '<div class="empty">无匹配单词</div>';
       } else if (state.view === 'phrases') {
         const list = $('#phraseList');
         if (list) list.innerHTML = applyFilter(state.phrases).map(phraseCardHtml).join('') || '<div class="empty">无匹配词组</div>';

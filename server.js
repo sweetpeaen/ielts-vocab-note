@@ -367,7 +367,7 @@ const server = http.createServer(async (req, res) => {
         if (proficiency) out = out.filter(o => o.proficiency === proficiency);
         const field = kind === 'words' ? 'word' : 'en';
         if (q) out = out.filter(o => (o[field] || '').toLowerCase().includes(q.toLowerCase()));
-        out = out.slice().sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
+        out = out.slice().sort((a, b) => (b.created_at || '').localeCompare(a.created_at || ''));
         return send(res, 200, out);
       }
       if (req.method === 'POST') {
@@ -375,7 +375,7 @@ const server = http.createServer(async (req, res) => {
         if (kind === 'words' && !body.word) return send(res, 400, { error: 'word required' });
         if (kind === 'sentences' && !body.en) return send(res, 400, { error: 'en required' });
         if (kind === 'phrases' && !body.en) return send(res, 400, { error: 'en required' });
-        const item = { id: uid(), createdAt: now(), updatedAt: now(), ...body };
+        const item = { id: uid(), created_at: now(), updated_at: now(), ...body };
         arr.push(item);
         syncTags(item.tags);
         persist(name, arr);
@@ -385,7 +385,7 @@ const server = http.createServer(async (req, res) => {
         const i = arr.findIndex(o => o.id === id);
         if (i < 0) return send(res, 404, { error: 'not found' });
         const body = await readBody(req);
-        arr[i] = { ...arr[i], ...body, id, updatedAt: now() };
+        arr[i] = { ...arr[i], ...body, id, updated_at: now() };
         syncTags(arr[i].tags);
         persist(name, arr);
         return send(res, 200, arr[i]);
