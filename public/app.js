@@ -104,6 +104,10 @@ function hlPhrase(ex, ph) {
   }
   return out + esc(ex.slice(last));
 }
+// 兼容历史数据：例句为纯英文串时补成 {en, cn}
+function normExs(exs) {
+  return (exs || []).map(e => typeof e === 'string' ? { en: e, cn: '' } : e);
+}
 const POS_RE = /^(n\.|v\.|vt\.|vi\.|adj\.|adv\.|prep\.|conj\.|pron\.|num\.|art\.|int\.|aux\.|abbr\.)\s*(.*)$/i;
 function parsePairs(text, a, b) {
   return String(text || '').split('\n').map(l => l.trim()).filter(Boolean).map(l => {
@@ -124,7 +128,7 @@ function firstDef(w) {
 
 /* ---------- 标签下拉选择器 ---------- */
 function tagOptHtml(t, selected) {
-  return `<label class="tagselect-opt"><input type="checkbox" value="${esc(t)}" ${selected.includes(t) ? 'checked' : ''}>${esc(t)}</label>`;
+  return `<label class="tagselect-opt"><span class="t-text">${esc(t)}</span><input type="checkbox" value="${esc(t)}" ${selected.includes(t) ? 'checked' : ''}></label>`;
 }
 function tagSelectorHtml(selected = []) {
   return `
@@ -272,16 +276,16 @@ function renderPhrases() {
 
 function phraseCardHtml(p) {
   const open = state.openPhraseId === p.id;
-  const exs = p.examples || [];
-  // 悬停优先显示首条例句；无例句时回退显示中文释义，保证卡片悬停永远有反馈
-  const tip = exs.length && exs[0] ? hlPhrase(exs[0], p.en) : (p.cn ? esc(p.cn) : '');
+  const exs = normExs(p.examples);
+  // 悬停只显示英文；无例句时回退显示中文释义，保证卡片悬停永远有反馈
+  const tip = exs.length && exs[0] ? hlPhrase(exs[0].en, p.en) : (p.cn ? esc(p.cn) : '');
   return `
   <div class="pcard${open ? ' open' : ''}" data-action="toggle-phrase" data-id="${p.id}">
     ${stampHtml(p.proficiency)}
     ${tip ? `<div class="p-tip">${tip}</div>` : ''}
     <div class="phr">${esc(p.en)}</div>
     ${p.cn ? `<div class="cn">${esc(p.cn)}</div>` : ''}
-    ${open && exs.length ? `<div class="p-exs"><div class="p-exs-title">例句</div>${exs.map(e => `<div class="p-ex">${hlPhrase(e, p.en)}</div>`).join('')}</div>` : ''}
+    ${open && exs.length ? `<div class="p-exs"><div class="p-exs-title">例句</div>${exs.map(e => `<div class="p-ex"><div class="p-ex-en">${hlPhrase(e.en, p.en)}</div>${e.cn ? `<div class="p-ex-cn">${esc(e.cn)}</div>` : ''}</div>`).join('')}</div>` : ''}
     <div class="meta">
       <span class="tags">${tagsHtml(p.tags)}</span>
       ${exs.length ? `<span class="p-excount">✎ ${exs.length}</span>` : ''}
@@ -490,7 +494,7 @@ function phraseFormHtml(ph = {}) {
     </div>
     <div class="sub" id="p-ai-note"></div>
   </div>
-  <div class="field"><label>例句（每行一句英文，词组将自动高亮）</label><textarea id="p-exs" style="min-height:64px" placeholder="Each line an English sentence containing the phrase.">${esc((ph.examples || []).join('\n'))}</textarea></div>
+  <div class="field"><label>例句（每行：英文 | 中文，词组将自动高亮）</label><textarea id="p-exs" style="min-height:64px" placeholder="English sentence | 中文翻译">${esc(normExs(ph.examples).map(e => `${e.en}${e.cn ? ' | ' + e.cn : ''}`).join('\n'))}</textarea></div>
   <div class="field"><label>标签（从已有标签选择，或新建）</label>${tagSelectorHtml(ph.tags || [])}</div>
   <div class="field"><label>熟练度</label><div class="prof-pick" id="f-prof">${PROF_LIST.map(x => `<button data-prof="${x}" style="--c:${PROF[x].color}"><span class="dot"></span>${PROF[x].label}</button>`).join('')}</div></div>`;
 }
@@ -501,7 +505,7 @@ function readPhraseForm() {
   return {
     en: val('#p-en').trim(),
     cn: val('#p-cn').trim(),
-    examples: val('#p-exs').split('\n').map(l => l.trim()).filter(Boolean),
+    examples: parsePairs(val('#p-exs'), 'en', 'cn'),
     tags: currentTags(),
     proficiency: profBtn ? profBtn.dataset.prof : 'medium',
   };
