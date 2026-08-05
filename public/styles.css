@@ -80,8 +80,6 @@ body {
 .btn-brand:hover { background: #a87d18; color: #fff; }
 .btn-ghost { border-color: transparent; color: var(--ink-soft); }
 .btn-ghost:hover { color: var(--red); border-color: var(--line); }
-.topbar .btn-ghost { color: rgba(255,255,255,.85); }
-.topbar .btn-ghost:hover { color: #fff; background: rgba(255,255,255,.12); border-color: transparent; }
 .btn-danger { color: var(--red); border-color: var(--red); }
 .btn-danger:hover { background: var(--red); color: #fff; }
 .btn-sm { padding: 4px 10px; font-size: 13px; }
