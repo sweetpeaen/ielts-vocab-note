@@ -23,7 +23,7 @@ CREATE TABLE IF NOT EXISTS sentences (
   created_at TEXT, updated_at TEXT
 );
 CREATE TABLE IF NOT EXISTS phrases (
-  id TEXT PRIMARY KEY, en TEXT, cn TEXT, tags TEXT, proficiency TEXT, note TEXT,
+  id TEXT PRIMARY KEY, en TEXT, cn TEXT, examples TEXT, tags TEXT, proficiency TEXT, note TEXT,
   created_at TEXT, updated_at TEXT
 );
 CREATE TABLE IF NOT EXISTS tag (
@@ -33,7 +33,7 @@ CREATE TABLE IF NOT EXISTS tag (
 
 const WORD_JSON = ['definitions', 'phrases', 'related', 'synonyms', 'examples', 'web', 'exam_types', 'tags'];
 const SENT_JSON = ['structures', 'expressions', 'new_examples', 'tags'];
-const PHRASE_JSON = ['tags'];
+const PHRASE_JSON = ['tags', 'examples'];
 const JSON_BY_NAME = { words: WORD_JSON, sentences: SENT_JSON, phrases: PHRASE_JSON };
 const COLS = {
   words: ['id', 'word', 'phonetic_us', 'phonetic_uk', 'chinese', ...WORD_JSON, 'proficiency', 'note', 'created_at', 'updated_at'],
@@ -77,6 +77,9 @@ function persist(name, arr) {
 
 const uid = () => crypto.randomUUID();
 const now = () => new Date().toISOString();
+
+const phraseCols = db.prepare('PRAGMA table_info(phrases)').all().map(c => c.name);
+if (!phraseCols.includes('examples')) db.exec('ALTER TABLE phrases ADD COLUMN examples TEXT');
 
 const PRESET_TAGS = ['科技', '自然', '教育', '社会', '经济', '文化', '健康', '环境'];
 if (db.prepare('SELECT COUNT(*) AS c FROM tag').get().c === 0) {

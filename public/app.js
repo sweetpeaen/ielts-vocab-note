@@ -15,6 +15,7 @@ const state = {
   filters: { tag: '', prof: '', q: '' },
   sort: 'new',
   detailWordId: null,
+  openPhraseId: null,
   openSentenceId: null,
   listScroll: 0,
 };
@@ -58,6 +59,17 @@ function stampHtml(prof) {
 }
 function tagsHtml(tags) {
   return (tags || []).map(t => `<span class="chip" style="pointer-events:none">${esc(t)}</span>`).join('');
+}
+// 在例句中用 <mark> 高亮词组（大小写不敏感）
+function hlPhrase(ex, ph) {
+  if (!ph) return esc(ex);
+  const lower = String(ex).toLowerCase(), p = ph.toLowerCase();
+  let out = '', i = 0, idx;
+  while ((idx = lower.indexOf(p, i)) !== -1) {
+    out += esc(ex.slice(i, idx)) + '<mark>' + esc(ex.slice(idx, idx + ph.length)) + '</mark>';
+    i = idx + ph.length;
+  }
+  return out + esc(ex.slice(i));
 }
 const POS_RE = /^(n\.|v\.|vt\.|vi\.|adj\.|adv\.|prep\.|conj\.|pron\.|num\.|art\.|int\.|aux\.|abbr\.)\s*(.*)$/i;
 function parsePairs(text, a, b) {
@@ -226,13 +238,19 @@ function renderPhrases() {
 }
 
 function phraseCardHtml(p) {
+  const open = state.openPhraseId === p.id;
+  const exs = p.examples || [];
+  const tip = exs[0] ? hlPhrase(exs[0], p.en) : '';
   return `
-  <div class="pcard">
+  <div class="pcard${open ? ' open' : ''}" data-action="toggle-phrase" data-id="${p.id}">
     ${stampHtml(p.proficiency)}
+    ${exs.length ? `<div class="p-tip">${tip}</div>` : ''}
     <div class="phr">${esc(p.en)}</div>
     ${p.cn ? `<div class="cn">${esc(p.cn)}</div>` : ''}
+    ${open && exs.length ? `<div class="p-exs"><div class="p-exs-title">例句</div>${exs.map(e => `<div class="p-ex">${hlPhrase(e, p.en)}</div>`).join('')}</div>` : ''}
     <div class="meta">
       <span class="tags">${tagsHtml(p.tags)}</span>
+      ${exs.length ? `<span class="p-excount">✎ ${exs.length}</span>` : ''}
       <span class="p-actions">
         <button class="btn btn-sm" data-action="edit-phrase" data-id="${p.id}">编辑</button>
         <button class="btn btn-sm btn-ghost" data-action="del-phrase" data-id="${p.id}">删除</button>
@@ -438,6 +456,7 @@ function phraseFormHtml(ph = {}) {
     </div>
     <div class="sub" id="p-ai-note"></div>
   </div>
+  <div class="field"><label>例句（每行一句英文，词组将自动高亮）</label><textarea id="p-exs" style="min-height:64px" placeholder="Each line an English sentence containing the phrase.">${esc((ph.examples || []).join('\n'))}</textarea></div>
   <div class="field"><label>标签（从已有标签选择，或新建）</label>${tagSelectorHtml(ph.tags || [])}</div>
   <div class="field"><label>熟练度</label><div class="prof-pick" id="f-prof">${PROF_LIST.map(x => `<button data-prof="${x}" style="--c:${PROF[x].color}"><span class="dot"></span>${PROF[x].label}</button>`).join('')}</div></div>`;
 }
@@ -448,6 +467,7 @@ function readPhraseForm() {
   return {
     en: val('#p-en').trim(),
     cn: val('#p-cn').trim(),
+    examples: val('#p-exs').split('\n').map(l => l.trim()).filter(Boolean),
     tags: currentTags(),
     proficiency: profBtn ? profBtn.dataset.prof : 'medium',
   };
@@ -701,6 +721,7 @@ function wireEvents() {
     state.view = b.dataset.view;
     location.hash = state.view;
     state.detailWordId = null;
+    state.openPhraseId = null;
     state.openSentenceId = null;
     render();
   });
@@ -740,6 +761,9 @@ function wireEvents() {
         toast('已删除');
         render();
       }
+    } else if (act === 'toggle-phrase') {
+      state.openPhraseId = state.openPhraseId === t.dataset.id ? null : t.dataset.id;
+      render();
     } else if (act === 'edit-phrase') {
       openEditPhraseModal(t.dataset.id);
     } else if (act === 'del-phrase') {

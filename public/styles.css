@@ -260,6 +260,21 @@ body {
 .pcard .stamp { position: absolute; top: 12px; right: 12px; }
 .pcard .meta { display: flex; gap: 6px; margin-top: auto; padding-top: 10px; flex-wrap: wrap; align-items: center; }
 .pcard .tags { display: flex; gap: 4px; flex-wrap: wrap; margin-right: auto; }
+.pcard.open { border-left-color: var(--brand); }
+.p-tip {
+  position: absolute; left: 14px; right: 14px; bottom: calc(100% + 10px); z-index: 40;
+  background: var(--brand); color: #fff; border-radius: 8px; padding: 8px 12px;
+  font-size: 13px; line-height: 1.5; box-shadow: var(--shadow-lg);
+  opacity: 0; visibility: hidden; transform: translateY(4px); pointer-events: none;
+  transition: opacity .15s, transform .15s;
+}
+.pcard:hover .p-tip { opacity: 1; visibility: visible; transform: none; }
+.p-tip mark { background: var(--accent); color: #fff; border-radius: 3px; padding: 0 3px; font-weight: 700; }
+.p-exs { margin-top: 10px; padding-top: 10px; border-top: 1px dashed var(--line); }
+.p-exs-title { font-size: 12px; font-weight: 700; letter-spacing: .14em; color: var(--ink-soft); text-transform: uppercase; margin-bottom: 6px; }
+.p-ex { font-family: var(--font-display); font-size: 14.5px; color: var(--brand); line-height: 1.5; margin-top: 4px; }
+.p-ex mark { background: var(--accent-soft); color: #7a5a10; border-radius: 3px; padding: 0 3px; font-weight: 700; }
+.p-excount { font-size: 12px; color: var(--ink-soft); }
 
 /* ============ Tag dropdown selector ============ */
 .hidden { display: none !important; }
@@ -275,7 +290,7 @@ body {
   border-top: 5px solid currentColor; margin-left: 2px;
 }
 .tagselect-menu {
-  position: absolute; top: calc(100% + 6px); left: 0; right: 0; z-index: 30;
+  width: min(300px, 100%); margin-top: 8px;
   background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius);
   box-shadow: var(--shadow-lg); padding: 6px;
 }
@@ -286,7 +301,7 @@ body {
 }
 .tagselect-new:hover { background: var(--accent-soft); }
 .tagselect-new-input { width: 100%; padding: 7px 10px; box-sizing: border-box; }
-.tagselect-list { max-height: 190px; overflow-y: auto; margin-top: 6px; }
+.tagselect-list { max-height: 190px; overflow-y: auto; margin-top: 6px; overscroll-behavior: contain; }
 .tagselect-opt { display: flex; gap: 8px; align-items: center; padding: 6px 8px; font-size: 14px; cursor: pointer; border-radius: 6px; }
 .tagselect-opt:hover { background: var(--brand-soft); }
 .tagselect-opt input { margin: 0; }
