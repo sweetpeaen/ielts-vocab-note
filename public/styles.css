@@ -95,9 +95,15 @@ body {
 .search:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
 .filters { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
 .sort-select {
-  border: 1px solid var(--line); border-radius: 9px; background: var(--surface);
-  padding: 9px 12px; font: inherit; font-size: 13.5px; color: var(--ink); cursor: pointer;
+  border: 1px solid var(--line); background: var(--surface); color: var(--ink-soft);
+  border-radius: 999px; padding: 5px 12px; font: inherit; font-size: 13px; cursor: pointer;
+  appearance: none; -webkit-appearance: none;
+  padding-right: 26px;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'><path d='M1 1l4 4 4-4' stroke='%2380899c' stroke-width='1.5' fill='none' stroke-linecap='round'/></svg>");
+  background-repeat: no-repeat; background-position: right 9px center;
+  transition: all .15s;
 }
+.sort-select:hover { border-color: var(--brand); color: var(--brand); }
 .sort-select:focus { outline: none; border-color: var(--accent); }
 
 /* tag chips */
@@ -256,8 +262,18 @@ body {
 .pcard .tags { display: flex; gap: 4px; flex-wrap: wrap; margin-right: auto; }
 
 /* ============ Tag dropdown selector ============ */
+.hidden { display: none !important; }
 .tagselect { position: relative; }
-.tagselect-trigger { width: 100%; text-align: left; }
+.tagselect-trigger {
+  border: 1px solid var(--line); background: var(--surface); color: var(--ink-soft);
+  border-radius: 999px; padding: 5px 12px; font-size: 13px; cursor: pointer;
+  display: inline-flex; align-items: center; gap: 6px; transition: all .15s;
+}
+.tagselect-trigger:hover { border-color: var(--brand); color: var(--brand); }
+.tagselect-trigger .caret {
+  width: 0; height: 0; border-left: 4px solid transparent; border-right: 4px solid transparent;
+  border-top: 5px solid currentColor; margin-left: 2px;
+}
 .tagselect-menu {
   position: absolute; top: calc(100% + 6px); left: 0; right: 0; z-index: 30;
   background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius);

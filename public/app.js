@@ -26,6 +26,13 @@ function sortWords(list) {
   if (state.sort === 'old') return arr.sort((a, b) => (a.created_at || '').localeCompare(b.created_at || ''));
   return arr.sort((a, b) => (b.created_at || '').localeCompare(a.created_at || ''));
 }
+function visibleWords() {
+  let list = state.words;
+  if (state.filters.tag) list = list.filter(w => (w.tags || []).includes(state.filters.tag));
+  if (state.filters.prof) list = list.filter(w => w.proficiency === state.filters.prof);
+  if (state.filters.q) list = list.filter(w => (w.word || '').toLowerCase().includes(state.filters.q.toLowerCase()));
+  return sortWords(list);
+}
 
 /* ---------- utils ---------- */
 const $ = s => document.querySelector(s);
@@ -77,7 +84,7 @@ function tagOptHtml(t, selected) {
 function tagSelectorHtml(selected = []) {
   return `
   <div class="tagselect" data-tagselect>
-    <button type="button" class="btn tagselect-trigger" data-toggle-menu>选择标签（可多选）▾</button>
+    <button type="button" class="tagselect-trigger" data-toggle-menu>＋ 选择标签<span class="caret"></span></button>
     <div class="tagselect-menu hidden" data-menu>
       <button type="button" class="tagselect-new" data-new-tag>＋ 新建标签</button>
       <div class="tagselect-list" data-optlist>
@@ -148,11 +155,7 @@ function renderWords() {
     }
     state.detailWordId = null;
   }
-  let list = state.words;
-  if (state.filters.tag) list = list.filter(w => (w.tags || []).includes(state.filters.tag));
-  if (state.filters.prof) list = list.filter(w => w.proficiency === state.filters.prof);
-  if (state.filters.q) list = list.filter(w => (w.word || '').toLowerCase().includes(state.filters.q.toLowerCase()));
-  list = sortWords(list);
+  const list = visibleWords();
   const cards = list.map(wordCardHtml).join('');
   const empty = `<div class="empty"><div class="big">空白的一页</div><p>还没有符合条件的单词。</p><button class="btn btn-brand" data-action="open-add-word">＋ 新建单词</button></div>`;
   app.innerHTML = filterBarHtml('word') + (cards ? `<div class="grid" id="wordList">${cards}</div>` : empty);
@@ -711,7 +714,7 @@ function wireEvents() {
     if (e.target.id === 'sortSel') {
       state.sort = e.target.value;
       const grid = $('#wordList');
-      if (grid) grid.innerHTML = sortWords(state.words).map(wordCardHtml).join('') || '<div class="empty">无匹配单词</div>';
+      if (grid) grid.innerHTML = visibleWords().map(wordCardHtml).join('') || '<div class="empty">无匹配单词</div>';
     }
   });
   $('#app').addEventListener('click', async e => {
@@ -796,7 +799,7 @@ function wireEvents() {
       };
       if (state.view === 'words') {
         const grid = $('#wordList');
-        if (grid) grid.innerHTML = sortWords(applyFilter(state.words)).map(wordCardHtml).join('') || '<div class="empty">无匹配单词</div>';
+        if (grid) grid.innerHTML = visibleWords().map(wordCardHtml).join('') || '<div class="empty">无匹配单词</div>';
       } else if (state.view === 'phrases') {
         const list = $('#phraseList');
         if (list) list.innerHTML = applyFilter(state.phrases).map(phraseCardHtml).join('') || '<div class="empty">无匹配词组</div>';
@@ -816,7 +819,10 @@ function wireEvents() {
   // tag selector (delegated)
   document.addEventListener('click', async e => {
     const tg = e.target.closest('.tagselect');
-    if (!tg) return;
+    if (!tg) {
+      document.querySelectorAll('.tagselect-menu').forEach(m => m.classList.add('hidden'));
+      return;
+    }
     const toggle = e.target.closest('[data-toggle-menu]');
     if (toggle) { tg.querySelector('[data-menu]').classList.toggle('hidden'); return; }
     const unpick = e.target.closest('[data-unpick]');
