@@ -9,3 +9,6 @@ key.txt
 # Node
 node_modules/
 *.log
+
+# 本地一次性导入脚本（含本机绝对路径）
+import.js

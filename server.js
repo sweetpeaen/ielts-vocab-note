@@ -22,6 +22,10 @@ CREATE TABLE IF NOT EXISTS sentences (
   new_examples TEXT, tags TEXT, proficiency TEXT, note TEXT,
   created_at TEXT, updated_at TEXT
 );
+CREATE TABLE IF NOT EXISTS phrases (
+  id TEXT PRIMARY KEY, en TEXT, cn TEXT, tags TEXT, proficiency TEXT, note TEXT,
+  created_at TEXT, updated_at TEXT
+);
 CREATE TABLE IF NOT EXISTS tag (
   name TEXT PRIMARY KEY, created_at TEXT
 );
@@ -29,13 +33,16 @@ CREATE TABLE IF NOT EXISTS tag (
 
 const WORD_JSON = ['definitions', 'phrases', 'related', 'synonyms', 'examples', 'web', 'exam_types', 'tags'];
 const SENT_JSON = ['structures', 'expressions', 'new_examples', 'tags'];
+const PHRASE_JSON = ['tags'];
+const JSON_BY_NAME = { words: WORD_JSON, sentences: SENT_JSON, phrases: PHRASE_JSON };
 const COLS = {
   words: ['id', 'word', 'phonetic_us', 'phonetic_uk', 'chinese', ...WORD_JSON, 'proficiency', 'note', 'created_at', 'updated_at'],
   sentences: ['id', 'en', 'cn', ...SENT_JSON, 'proficiency', 'note', 'created_at', 'updated_at'],
+  phrases: ['id', 'en', 'cn', ...PHRASE_JSON, 'proficiency', 'note', 'created_at', 'updated_at'],
 };
 
 function loadAll(name) {
-  const jsonCols = name === 'words' ? WORD_JSON : SENT_JSON;
+  const jsonCols = JSON_BY_NAME[name];
   return db.prepare(`SELECT * FROM ${name}`).all().map(row => {
     const o = {};
     for (const c of COLS[name]) {
@@ -51,7 +58,7 @@ function persist(name, arr) {
   try {
     db.prepare(`DELETE FROM ${name}`).run();
     const cols = COLS[name];
-    const jsonCols = name === 'words' ? WORD_JSON : SENT_JSON;
+    const jsonCols = JSON_BY_NAME[name];
     const stmt = db.prepare(`INSERT INTO ${name} (${cols.join(',')}) VALUES (${cols.map(() => '?').join(',')})`);
     for (const item of arr) {
       const row = cols.map(c => {
@@ -143,8 +150,11 @@ async function fetchDict(word) {
   if (j.phrs && Array.isArray(j.phrs.phrs)) {
     for (const p of j.phrs.phrs.slice(0, 8)) {
       const hw = p.phr && p.phr.headword && p.phr.headword.l && p.phr.headword.l.i;
-      const tr = p.phr && p.phr.trs && p.phr.trs[0] && p.phr.trs[0].tr && p.phr.trs[0].tr[0] && cleanText(p.phr.trs[0].tr[0].l.i);
-      if (hw) out.phrases.push({ phrase: cleanText(hw), mean: tr || '' });
+      // trs[0].tr may be an object {l:{i}} or an array of such objects — normalize both
+      const trs = p.phr && p.phr.trs && p.phr.trs[0] && p.phr.trs[0].tr;
+      const trList = Array.isArray(trs) ? trs : trs ? [trs] : [];
+      const tr = trList.map(t => cleanText(t.l && t.l.i)).filter(Boolean).join('；');
+      if (hw) out.phrases.push({ phrase: cleanText(hw), mean: tr });
     }
   }
   if (j.rel_word && Array.isArray(j.rel_word.rels)) {
@@ -217,6 +227,36 @@ structures 和 expressions 合计3~6条即可，优先雅思写作常见高分�
   catch (e) { return { cn: content }; }
 }
 
+async function translatePhrase(en) {
+  const settings = readSettings();
+  if (!settings.apiKey) {
+    return { error: 'NO_KEY', message: '未配置 AI API Key。请点击右上角「设置」填写后重试，或手动填写中文释义。' };
+  }
+  const base = settings.apiBase.replace(/\/+$/, '');
+  const sys = `你是雅思学习助手。把用户给出的英文词组/固定搭配翻译成准确自然的中文释义，只输出 JSON：{"cn":"中文释义"}。不要逐词直译，给出整词组的意思和常见语境。`;
+  const r = await fetch(`${base}/chat/completions`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${settings.apiKey}` },
+    body: JSON.stringify({
+      model: settings.apiModel,
+      messages: [
+        { role: 'system', content: sys },
+        { role: 'user', content: en },
+      ],
+      temperature: 0.3,
+      response_format: { type: 'json_object' },
+    }),
+  });
+  if (!r.ok) {
+    const body = await r.text().catch(() => '');
+    throw new Error(`AI api ${r.status}: ${body.slice(0, 200)}`);
+  }
+  const j = await r.json();
+  const content = j.choices && j.choices[0] && j.choices[0].message && j.choices[0].message.content;
+  try { return JSON.parse(content); }
+  catch (e) { return { cn: content }; }
+}
+
 // ---------- HTTP helpers ----------
 function send(res, code, obj) {
   const body = JSON.stringify(obj);
@@ -245,7 +285,7 @@ const server = http.createServer(async (req, res) => {
       const parts = p.split('/').filter(Boolean);
       const kind = parts[1];
       const id = parts[2];
-      const name = kind === 'words' ? 'words' : kind === 'sentences' ? 'sentences' : null;
+      const name = ['words', 'sentences', 'phrases'].includes(kind) ? kind : null;
 
       if (kind === 'dict') {
         const q = (url.searchParams.get('q') || '').trim();
@@ -255,6 +295,11 @@ const server = http.createServer(async (req, res) => {
       if (kind === 'analyze') {
         const body = await readBody(req);
         const out = await analyzeSentence(body.sentence || '');
+        return send(res, 200, out);
+      }
+      if (kind === 'translate-phrase') {
+        const body = await readBody(req);
+        const out = await translatePhrase(body.en || '');
         return send(res, 200, out);
       }
       if (kind === 'settings') {
@@ -272,7 +317,7 @@ const server = http.createServer(async (req, res) => {
       if (kind === 'tags') {
         if (req.method === 'GET') {
           const set = new Set(db.prepare('SELECT name FROM tag').all().map(r => r.name));
-          [...loadAll('words'), ...loadAll('sentences')].forEach(o => (o.tags || []).forEach(t => set.add(t)));
+          [...loadAll('words'), ...loadAll('sentences'), ...loadAll('phrases')].forEach(o => (o.tags || []).forEach(t => set.add(t)));
           return send(res, 200, { tags: [...set].sort() });
         }
         if (req.method === 'POST') {
@@ -287,7 +332,7 @@ const server = http.createServer(async (req, res) => {
         const tagName = decodeURIComponent(id);
         if (req.method === 'DELETE') {
           db.prepare('DELETE FROM tag WHERE name = ?').run(tagName);
-          for (const tbl of ['words', 'sentences']) {
+          for (const tbl of ['words', 'sentences', 'phrases']) {
             const arr = loadAll(tbl);
             arr.forEach(o => { if (o.tags) o.tags = o.tags.filter(t => t !== tagName); });
             persist(tbl, arr);
@@ -300,7 +345,7 @@ const server = http.createServer(async (req, res) => {
           if (!newName) return send(res, 400, { error: 'newName required' });
           db.prepare('DELETE FROM tag WHERE name = ?').run(tagName);
           db.prepare('INSERT OR IGNORE INTO tag (name, created_at) VALUES (?, ?)').run(newName, now());
-          for (const tbl of ['words', 'sentences']) {
+          for (const tbl of ['words', 'sentences', 'phrases']) {
             const arr = loadAll(tbl);
             arr.forEach(o => { if (o.tags) o.tags = o.tags.map(t => t === tagName ? newName : t); });
             persist(tbl, arr);
@@ -329,6 +374,7 @@ const server = http.createServer(async (req, res) => {
         const body = await readBody(req);
         if (kind === 'words' && !body.word) return send(res, 400, { error: 'word required' });
         if (kind === 'sentences' && !body.en) return send(res, 400, { error: 'en required' });
+        if (kind === 'phrases' && !body.en) return send(res, 400, { error: 'en required' });
         const item = { id: uid(), createdAt: now(), updatedAt: now(), ...body };
         arr.push(item);
         syncTags(item.tags);
@@ -366,4 +412,8 @@ const server = http.createServer(async (req, res) => {
   }
 });
 
-server.listen(PORT, () => console.log(`IELTS 词汇本 running at http://localhost:${PORT}`));
+if (require.main === module) {
+  server.listen(PORT, () => console.log(`IELTS 词汇本 running at http://localhost:${PORT}`));
+}
+
+module.exports = { db, loadAll, persist, syncTags, fetchDict, translatePhrase, uid, now };

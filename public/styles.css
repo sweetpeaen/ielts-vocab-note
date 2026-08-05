@@ -234,6 +234,43 @@ body {
 .s-new .ne::before { content: "✎ "; color: var(--accent); font-weight: 700; }
 .s-actions { display: flex; gap: 8px; margin-top: 14px; }
 
+/* ============ Phrase view ============ */
+.plist { display: flex; flex-direction: column; gap: 12px; }
+.pcard {
+  background: var(--surface); border: 1px solid var(--line); border-left: 4px solid #A76BD4;
+  border-radius: var(--radius); padding: 14px 18px; position: relative;
+  transition: box-shadow .16s, transform .16s;
+}
+.pcard:hover { box-shadow: var(--shadow-lg); transform: translateY(-2px); }
+.pcard .phr { font-family: var(--font-display); font-size: 18px; color: var(--brand); line-height: 1.45; padding-right: 84px; }
+.pcard .cn { color: var(--ink-soft); margin-top: 4px; font-size: 14px; }
+.pcard .stamp { position: absolute; top: 14px; right: 16px; }
+.pcard .meta { display: flex; gap: 6px; margin-top: 10px; flex-wrap: wrap; align-items: center; }
+.pcard .tags { display: flex; gap: 4px; flex-wrap: wrap; margin-right: auto; }
+
+/* ============ Tag dropdown selector ============ */
+.tagselect { position: relative; }
+.tagselect-trigger { width: 100%; text-align: left; }
+.tagselect-menu {
+  position: absolute; top: calc(100% + 6px); left: 0; right: 0; z-index: 30;
+  background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius);
+  box-shadow: var(--shadow-lg); padding: 6px;
+}
+.tagselect-new {
+  width: 100%; text-align: left; border: 1px dashed var(--accent); color: var(--accent);
+  background: transparent; border-radius: 6px; padding: 7px 10px; font-size: 13px; font-weight: 600;
+  cursor: pointer;
+}
+.tagselect-new:hover { background: var(--accent-soft); }
+.tagselect-new-input { width: 100%; padding: 7px 10px; box-sizing: border-box; }
+.tagselect-list { max-height: 190px; overflow-y: auto; margin-top: 6px; }
+.tagselect-opt { display: flex; gap: 8px; align-items: center; padding: 6px 8px; font-size: 14px; cursor: pointer; border-radius: 6px; }
+.tagselect-opt:hover { background: var(--brand-soft); }
+.tagselect-opt input { margin: 0; }
+.tagselect-chips { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; }
+.chip-x { border: 0; background: transparent; color: var(--ink-soft); cursor: pointer; font-size: 13px; padding: 0 2px; line-height: 1; }
+.chip-x:hover { color: var(--red); }
+
 /* ============ Compose / add-new card ============ */
 .composer {
   background: var(--surface); border: 1px dashed var(--line); border-radius: var(--radius);
@@ -325,4 +362,6 @@ textarea:focus, input:focus { outline: none; border-color: var(--accent); box-sh
   .detail-body { padding: 16px 16px 22px; }
   .scard .sen { padding-right: 0; }
   .scard .stamp { position: static; margin-left: auto; }
+  .pcard .phr { padding-right: 0; }
+  .pcard .stamp { position: static; margin-left: auto; }
 }

@@ -7,9 +7,10 @@ const PROF = {
 const PROF_LIST = ['mastered', 'medium', 'unfamiliar'];
 
 const state = {
-  view: location.hash === '#sentences' ? 'sentences' : 'words',
+  view: location.hash === '#sentences' ? 'sentences' : location.hash === '#phrases' ? 'phrases' : 'words',
   words: [],
   sentences: [],
+  phrases: [],
   tags: [],
   filters: { tag: '', prof: '', q: '' },
   detailWordId: null,
@@ -50,18 +51,41 @@ function parsePairs(text, a, b) {
 function toPairsText(arr, a, b) {
   return (arr || []).map(o => `${o[a] || ''} | ${o[b] || ''}`).join('\n');
 }
-function parseTags(text) {
-  return [...new Set(String(text || '').split(/[,，、\s]+/).map(s => s.trim()).filter(Boolean))];
-}
 function firstDef(w) {
   return w.chinese || ((w.definitions || [])[0] ? w.definitions[0].mean : '');
 }
 
+/* ---------- 标签下拉选择器 ---------- */
+function tagOptHtml(t, selected) {
+  return `<label class="tagselect-opt"><input type="checkbox" value="${esc(t)}" ${selected.includes(t) ? 'checked' : ''}>${esc(t)}</label>`;
+}
+function tagSelectorHtml(selected = []) {
+  return `
+  <div class="tagselect" data-tagselect>
+    <button type="button" class="btn tagselect-trigger" data-toggle-menu>选择标签（可多选）▾</button>
+    <div class="tagselect-menu hidden" data-menu>
+      <button type="button" class="tagselect-new" data-new-tag>＋ 新建标签</button>
+      <div class="tagselect-list" data-optlist>
+        ${state.tags.map(t => tagOptHtml(t, selected)).join('')}
+      </div>
+    </div>
+    <div class="tagselect-chips" data-chips>${selected.map(t => `<span class="chip">${esc(t)}<button type="button" class="chip-x" data-unpick="${esc(t)}">×</button></span>`).join('')}</div>
+  </div>`;
+}
+function currentTags() {
+  return [...document.querySelectorAll('.modal .tagselect input[type=checkbox]:checked')].map(i => i.value);
+}
+function updateChips(tg) {
+  const checked = [...tg.querySelectorAll('input[type=checkbox]:checked')].map(i => i.value);
+  tg.querySelector('[data-chips]').innerHTML = checked.map(v => `<span class="chip">${esc(v)}<button type="button" class="chip-x" data-unpick="${esc(v)}">×</button></span>`).join('');
+}
+
 /* ---------- data ---------- */
 async function loadAll() {
-  const [words, sentences, tagsRes] = await Promise.all([api('/api/words'), api('/api/sentences'), api('/api/tags')]);
+  const [words, sentences, phrases, tagsRes] = await Promise.all([api('/api/words'), api('/api/sentences'), api('/api/phrases'), api('/api/tags')]);
   state.words = words;
   state.sentences = sentences;
+  state.phrases = phrases;
   state.tags = tagsRes.tags || [];
 }
 
@@ -69,6 +93,7 @@ async function loadAll() {
 function render() {
   $('#app').innerHTML = '';
   if (state.view === 'words') renderWords();
+  else if (state.view === 'phrases') renderPhrases();
   else renderSentences();
   document.querySelectorAll('.tab').forEach(t => t.classList.toggle('is-active', t.dataset.view === state.view));
 }
@@ -76,9 +101,10 @@ function render() {
 function filterBarHtml(extra) {
   const tagChips = state.tags.map(t => `<button class="chip${state.filters.tag === t ? ' is-active' : ''}" data-action="set-tag" data-tag="${esc(t)}">${esc(t)}</button>`).join('');
   const profChips = PROF_LIST.map(p => `<button class="pf${state.filters.prof === p ? ' is-active' : ''}" style="--c:${PROF[p].color}" data-action="set-prof" data-prof="${p}"><span class="dot"></span>${PROF[p].label}</button>`).join('');
+  const ph = extra === 'word' ? '搜索单词…' : extra === 'phrase' ? '搜索词组…' : '搜索句子…';
   return `
   <div class="filterbar">
-    <input class="search" id="search" type="search" placeholder="${extra === 'word' ? '搜索单词…' : '搜索句子…'}" value="${esc(state.filters.q)}">
+    <input class="search" id="search" type="search" placeholder="${ph}" value="${esc(state.filters.q)}">
     <div class="filters">
       ${tagChips}
       <button class="chip is-add" data-action="add-tag">标签管理</button>
@@ -151,6 +177,36 @@ function wordDetailHtml(w) {
         <button class="btn" data-action="edit-word" data-id="${w.id}">编辑</button>
         <button class="btn btn-ghost" data-action="del-word" data-id="${w.id}">删除</button>
       </div>
+    </div>
+  </div>`;
+}
+
+/* ---------- 词组库 ---------- */
+function renderPhrases() {
+  const app = $('#app');
+  let list = state.phrases;
+  if (state.filters.tag) list = list.filter(p => (p.tags || []).includes(state.filters.tag));
+  if (state.filters.prof) list = list.filter(p => p.proficiency === state.filters.prof);
+  if (state.filters.q) list = list.filter(p => (p.en || '').toLowerCase().includes(state.filters.q.toLowerCase()));
+  const cards = list.map(phraseCardHtml).join('');
+  const empty = `<div class="empty"><div class="big">攒词不辍</div><p>还没有符合条件的词组。点击右上角「＋ 新建」收录第一个。</p></div>`;
+  app.innerHTML = `
+    ${filterBarHtml('phrase')}
+    <div class="plist" id="phraseList">${cards || empty}</div>`;
+}
+
+function phraseCardHtml(p) {
+  return `
+  <div class="pcard">
+    ${stampHtml(p.proficiency)}
+    <div class="phr">${esc(p.en)}</div>
+    ${p.cn ? `<div class="cn">${esc(p.cn)}</div>` : ''}
+    <div class="meta">
+      <span class="tags">${tagsHtml(p.tags)}</span>
+      <span class="p-actions">
+        <button class="btn btn-sm" data-action="edit-phrase" data-id="${p.id}">编辑</button>
+        <button class="btn btn-sm btn-ghost" data-action="del-phrase" data-id="${p.id}">删除</button>
+      </span>
     </div>
   </div>`;
 }
@@ -244,7 +300,7 @@ function wordFormHtml(w = {}) {
   <div class="field"><label>相关词（每行：单词 | 含义）</label><textarea id="f-rels">${esc(toPairsText(w.related, 'word', 'mean'))}</textarea></div>
   <div class="field"><label>同义词（每行：单词 | 含义）</label><textarea id="f-synos">${esc(toPairsText(w.synonyms, 'word', 'mean'))}</textarea></div>
   <div class="field"><label>例句（每行：英文 | 中文）</label><textarea id="f-exs">${esc(toPairsText(w.examples, 'en', 'cn'))}</textarea></div>
-  <div class="field"><label>标签（逗号分隔，如 IELTS, 作文, 阅读）</label><input id="f-tags" type="text" value="${esc((w.tags || []).join(', '))}"></div>
+  <div class="field"><label>标签（从已有标签选择，或新建）</label>${tagSelectorHtml(w.tags || [])}</div>
   <div class="field"><label>熟练度</label><div class="prof-pick" id="f-prof">${PROF_LIST.map(p => `<button data-prof="${p}" style="--c:${PROF[p].color}"><span class="dot"></span>${PROF[p].label}</button>`).join('')}</div></div>`;
 }
 
@@ -260,7 +316,7 @@ function readWordForm() {
     related: parsePairs(val('#f-rels'), 'word', 'mean'),
     synonyms: parsePairs(val('#f-synos'), 'word', 'mean'),
     examples: parsePairs(val('#f-exs'), 'en', 'cn'),
-    tags: parseTags(val('#f-tags')),
+    tags: currentTags(),
     proficiency: profBtn ? profBtn.dataset.prof : 'medium',
   };
 }
@@ -283,6 +339,7 @@ function openAddWordModal() {
   const note = $('#lookup-note');
   const root = lastModal.root;
   root.querySelector('[data-cancel]').onclick = () => lastModal.close();
+  $('#lookup-word').addEventListener('keydown', e => { if (e.key === 'Enter') $('#lookup-btn').click(); });
   $('#lookup-btn').onclick = async () => {
     const q = $('#lookup-word').value.trim();
     if (!q) return;
@@ -339,6 +396,86 @@ function openEditWordModal(id) {
   };
 }
 
+/* ---------- 词组表单 ---------- */
+function phraseFormHtml(ph = {}) {
+  return `
+  <div class="field"><label>英文词组 / 搭配</label><textarea id="p-en" style="min-height:48px">${esc(ph.en || '')}</textarea></div>
+  <div class="field">
+    <label>中文释义</label>
+    <div style="display:flex;gap:8px;align-items:flex-start">
+      <textarea id="p-cn" style="min-height:44px;flex:1">${esc(ph.cn || '')}</textarea>
+      <button type="button" class="btn" id="p-ai-fill">⚡ AI 填中文</button>
+    </div>
+    <div class="sub" id="p-ai-note"></div>
+  </div>
+  <div class="field"><label>标签（从已有标签选择，或新建）</label>${tagSelectorHtml(ph.tags || [])}</div>
+  <div class="field"><label>熟练度</label><div class="prof-pick" id="f-prof">${PROF_LIST.map(x => `<button data-prof="${x}" style="--c:${PROF[x].color}"><span class="dot"></span>${PROF[x].label}</button>`).join('')}</div></div>`;
+}
+
+function readPhraseForm() {
+  const val = id => $(id).value;
+  const profBtn = $('#f-prof').querySelector('.is-active');
+  return {
+    en: val('#p-en').trim(),
+    cn: val('#p-cn').trim(),
+    tags: currentTags(),
+    proficiency: profBtn ? profBtn.dataset.prof : 'medium',
+  };
+}
+
+function wirePhraseAi(note) {
+  $('#p-ai-fill').onclick = async () => {
+    const en = $('#p-en').value.trim();
+    if (!en) { toast('请先输入英文词组', true); return; }
+    const b = $('#p-ai-fill'); b.disabled = true;
+    note.innerHTML = `<span class="loading"><span class="spinner"></span>AI 翻译中…</span>`;
+    try {
+      const r = await api('/api/translate-phrase', { method: 'POST', body: JSON.stringify({ en }) });
+      if (r.error) throw new Error(r.message || r.error);
+      if (r.cn) $('#p-cn').value = r.cn;
+      note.innerHTML = `<span style="color:var(--green);font-weight:600">✓ 已填入，可修改</span>`;
+    } catch (e) { note.innerHTML = `<span style="color:var(--red)">${esc(e.message)}</span>`; }
+    finally { b.disabled = false; }
+  };
+  $('#p-en').addEventListener('keydown', e => { if (e.key === 'Enter' && e.ctrlKey) $('#p-ai-fill').click(); });
+}
+
+function openAddPhraseModal() {
+  lastModal = openModal('新建词组', phraseFormHtml(), `<button class="btn" data-cancel>取消</button><button class="btn btn-brand" id="save-phrase">保存到词组库</button>`);
+  lastModal.root.querySelector('[data-cancel]').onclick = () => lastModal.close();
+  wirePhraseAi($('#p-ai-note'));
+  $('#save-phrase').onclick = async () => {
+    try {
+      const data = readPhraseForm();
+      if (!data.en) { toast('请填写英文词组', true); return; }
+      await api('/api/phrases', { method: 'POST', body: JSON.stringify(data) });
+      await loadAll();
+      toast(`已收录词组「${data.en}」`);
+      lastModal.close();
+      render();
+    } catch (e) { toast(e.message, true); }
+  };
+}
+
+function openEditPhraseModal(id) {
+  const p = state.phrases.find(x => x.id === id);
+  if (!p) return;
+  lastModal = openModal('编辑词组', phraseFormHtml(p), `<button class="btn" data-cancel>取消</button><button class="btn btn-brand" id="save-phrase">保存修改</button>`);
+  lastModal.root.querySelector('[data-cancel]').onclick = () => lastModal.close();
+  wirePhraseAi($('#p-ai-note'));
+  $('#save-phrase').onclick = async () => {
+    try {
+      const data = readPhraseForm();
+      if (!data.en) { toast('请填写英文词组', true); return; }
+      await api('/api/phrases/' + id, { method: 'PUT', body: JSON.stringify(data) });
+      await loadAll();
+      toast('已保存');
+      lastModal.close();
+      render();
+    } catch (e) { toast(e.message, true); }
+  };
+}
+
 /* ---------- 句子编辑 ---------- */
 function sentenceFormHtml(s = {}) {
   return `
@@ -347,7 +484,7 @@ function sentenceFormHtml(s = {}) {
   <div class="field"><label>作文可用结构（每行：结构 | 用法）</label><textarea id="f-strs">${esc(toPairsText(s.structures, 'name', 'usage'))}</textarea></div>
   <div class="field"><label>表达 · 固定搭配（每行：表达 | 说明）</label><textarea id="f-exprs">${esc(toPairsText(s.expressions, 'text', 'note'))}</textarea></div>
   <div class="field"><label>另造的例句（每行一句）</label><textarea id="f-news">${esc((s.new_examples || []).join('\n'))}</textarea></div>
-  <div class="field"><label>标签（逗号分隔）</label><input id="f-tags" type="text" value="${esc((s.tags || []).join(', '))}"></div>
+  <div class="field"><label>标签（从已有标签选择，或新建）</label>${tagSelectorHtml(s.tags || [])}</div>
   <div class="field"><label>熟练度</label><div class="prof-pick" id="f-prof">${PROF_LIST.map(p => `<button data-prof="${p}" style="--c:${PROF[p].color}"><span class="dot"></span>${PROF[p].label}</button>`).join('')}</div></div>`;
 }
 
@@ -360,7 +497,7 @@ function readSentenceForm() {
     structures: parsePairs(val('#f-strs'), 'name', 'usage'),
     expressions: parsePairs(val('#f-exprs'), 'text', 'note'),
     new_examples: val('#f-news').split('\n').map(l => l.trim()).filter(Boolean),
-    tags: parseTags(val('#f-tags')),
+    tags: currentTags(),
     proficiency: profBtn ? profBtn.dataset.prof : 'medium',
   };
 }
@@ -539,6 +676,7 @@ function wireEvents() {
   });
   $('#addBtn').addEventListener('click', () => {
     if (state.view === 'words') openAddWordModal();
+    else if (state.view === 'phrases') openAddPhraseModal();
     else { render(); const c = $('#composerInput'); if (c) c.focus(); }
   });
   $('#settingsBtn').addEventListener('click', openSettingsModal);
@@ -560,6 +698,16 @@ function wireEvents() {
         await api('/api/words/' + t.dataset.id, { method: 'DELETE' });
         await loadAll();
         state.detailWordId = null;
+        toast('已删除');
+        render();
+      }
+    } else if (act === 'edit-phrase') {
+      openEditPhraseModal(t.dataset.id);
+    } else if (act === 'del-phrase') {
+      const p = state.phrases.find(x => x.id === t.dataset.id);
+      if (confirm(`删除词组「${p ? p.en : ''}」？此操作不可恢复。`)) {
+        await api('/api/phrases/' + t.dataset.id, { method: 'DELETE' });
+        await loadAll();
         toast('已删除');
         render();
       }
@@ -613,6 +761,9 @@ function wireEvents() {
       if (state.view === 'words') {
         const grid = $('#wordList');
         if (grid) grid.innerHTML = applyFilter(state.words).map(wordCardHtml).join('') || '<div class="empty">无匹配单词</div>';
+      } else if (state.view === 'phrases') {
+        const list = $('#phraseList');
+        if (list) list.innerHTML = applyFilter(state.phrases).map(phraseCardHtml).join('') || '<div class="empty">无匹配词组</div>';
       } else {
         const list = $('#sentenceList');
         if (list) list.innerHTML = applyFilter(state.sentences).map(sentenceCardHtml).join('') || '<div class="empty">无匹配句子</div>';
@@ -625,6 +776,56 @@ function wireEvents() {
     if (!b) return;
     b.parentElement.querySelectorAll('button').forEach(x => x.classList.remove('is-active'));
     b.classList.add('is-active');
+  });
+  // tag selector (delegated)
+  document.addEventListener('click', async e => {
+    const tg = e.target.closest('.tagselect');
+    if (!tg) return;
+    const toggle = e.target.closest('[data-toggle-menu]');
+    if (toggle) { tg.querySelector('[data-menu]').classList.toggle('hidden'); return; }
+    const unpick = e.target.closest('[data-unpick]');
+    if (unpick) {
+      const v = unpick.dataset.unpick;
+      const cb = [...tg.querySelectorAll('input[type=checkbox]')].find(i => i.value === v);
+      if (cb) cb.checked = false;
+      updateChips(tg);
+      return;
+    }
+    const nw = e.target.closest('[data-new-tag]');
+    if (nw) {
+      const inp = document.createElement('input');
+      inp.type = 'text'; inp.className = 'tagselect-new-input'; inp.placeholder = '新标签名，回车确认';
+      nw.replaceWith(inp); inp.focus();
+      const restore = () => {
+        if (!inp.isConnected) return;
+        const b = document.createElement('button');
+        b.type = 'button'; b.className = 'tagselect-new'; b.dataset.newTag = '';
+        b.textContent = '＋ 新建标签';
+        inp.replaceWith(b);
+      };
+      inp.onkeydown = async ev => {
+        if (ev.key === 'Enter') {
+          const name = inp.value.trim();
+          if (name) {
+            try {
+              await api('/api/tags', { method: 'POST', body: JSON.stringify({ name }) });
+              await loadAll();
+              const sel = [...tg.querySelectorAll('input[type=checkbox]:checked')].map(i => i.value);
+              if (!sel.includes(name)) sel.push(name);
+              tg.querySelector('[data-optlist]').innerHTML = state.tags.map(t => tagOptHtml(t, sel)).join('');
+              updateChips(tg);
+              toast(`已新建标签「${name}」`);
+            } catch (err) { toast(err.message, true); }
+          }
+          restore();
+        } else if (ev.key === 'Escape') restore();
+      };
+      inp.onblur = restore;
+    }
+  });
+  document.addEventListener('change', e => {
+    const cb = e.target.closest('.tagselect input[type=checkbox]');
+    if (cb) updateChips(cb.closest('.tagselect'));
   });
 }
 
